@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Shorts Video Functionality Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .video-card { 
+            display: inline-block; 
+            width: 200px; 
+            margin: 10px; 
+            cursor: pointer; 
+            border: 1px solid #ccc; 
+            border-radius: 8px; 
+            overflow: hidden;
+            transition: transform 0.2s ease;
+        }
+        .video-card:hover { transform: translateY(-2px); }
+        .video-thumb { width: 100%; height: 150px; background: #000; position: relative; }
+        .video-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .video-title { padding: 10px; font-size: 14px; }
+        .modal { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0,0,0,0.8); 
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 8px; 
+            max-width: 90vw; 
+            max-height: 90vh;
+            position: relative;
+        }
+        .close { 
+            position: absolute; 
+            top: 10px; 
+            right: 15px; 
+            font-size: 24px; 
+            cursor: pointer; 
+            color: #666;
+        }
+        .close:hover { color: #000; }
+        iframe { border: none; }
+    </style>
+</head>
+<body>
+    <h1>YouTube Shorts Video Functionality Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Inline Video Playback</h2>
+        <p>Click on a video to play it inline (replaces the thumbnail):</p>
+        <div class="video-card" data-id="dQw4w9WgXcQ" data-play="inline">
+            <div class="video-thumb">
+                <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg" alt="Test Video 1">
+            </div>
+            <div class="video-title">Test Video 1 - Inline Mode</div>
+        </div>
+        <div class="video-card" data-id="9bZkp7q19f0" data-play="inline">
+            <div class="video-thumb">
+                <img src="https://img.youtube.com/vi/9bZkp7q19f0/mqdefault.jpg" alt="Test Video 2">
+            </div>
+            <div class="video-title">Test Video 2 - Inline Mode</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Modal/Popup Video Playback</h2>
+        <p>Click on a video to open it in a popup modal:</p>
+        <div class="video-card" data-id="dQw4w9WgXcQ" data-play="popup">
+            <div class="video-thumb">
+                <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg" alt="Test Video 3">
+            </div>
+            <div class="video-title">Test Video 3 - Popup Mode</div>
+        </div>
+        <div class="video-card" data-id="9bZkp7q19f0" data-play="popup">
+            <div class="video-thumb">
+                <img src="https://img.youtube.com/vi/9bZkp7q19f0/mqdefault.jpg" alt="Test Video 4">
+            </div>
+            <div class="video-title">Test Video 4 - Popup Mode</div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Redirect to YouTube</h2>
+        <p>Click on a video to open it on YouTube:</p>
+        <div class="video-card" data-id="dQw4w9WgXcQ" data-play="redirect">
+            <div class="video-thumb">
+                <img src="https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg" alt="Test Video 5">
+            </div>
+            <div class="video-title">Test Video 5 - Redirect Mode</div>
+        </div>
+        <div class="video-card" data-id="9bZkp7q19f0" data-play="redirect">
+            <div class="video-thumb">
+                <img src="https://img.youtube.com/vi/9bZkp7q19f0/mqdefault.jpg" alt="Test Video 6">
+            </div>
+            <div class="video-title">Test Video 6 - Redirect Mode</div>
+        </div>
+    </div>
+
+    <!-- Modal for popup videos -->
+    <div id="videoModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="videoPlayer"></div>
+        </div>
+    </div>
+
+    <script>
+        // YouTube iframe creation function
+        function createYouTubeIframe(videoId, autoplay = false) {
+            const params = new URLSearchParams({
+                rel: 0,
+                modestbranding: 1,
+                playsinline: 1,
+                autoplay: autoplay ? 1 : 0,
+                mute: autoplay ? 1 : 0
+            });
+            
+            const iframe = document.createElement('iframe');
+            iframe.src = `https://www.youtube.com/embed/${videoId}?${params.toString()}`;
+            iframe.width = '560';
+            iframe.height = '315';
+            iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+            iframe.allowFullscreen = true;
+            
+            return iframe;
+        }
+
+        // Handle video card clicks
+        function handleVideoClick(e) {
+            const card = e.currentTarget;
+            const videoId = card.dataset.id;
+            const playMode = card.dataset.play || 'inline';
+            
+            console.log('Video clicked:', videoId, 'Play mode:', playMode);
+            
+            if (playMode === 'popup') {
+                // Open in modal
+                const modal = document.getElementById('videoModal');
+                const player = document.getElementById('videoPlayer');
+                
+                player.innerHTML = '';
+                player.appendChild(createYouTubeIframe(videoId, true));
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+                
+            } else if (playMode === 'redirect') {
+                // Redirect to YouTube
+                window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank');
+                
+            } else {
+                // Inline mode
+                const thumb = card.querySelector('.video-thumb');
+                
+                // If already playing, stop it
+                if (thumb.dataset.playing === '1') {
+                    thumb.dataset.playing = '0';
+                    thumb.innerHTML = '<img src="' + thumb.dataset.src + '" alt="">';
+                    return;
+                }
+                
+                // Stop other playing videos
+                document.querySelectorAll('.video-thumb[data-playing="1"]').forEach(t => {
+                    t.dataset.playing = '0';
+                    t.innerHTML = '<img src="' + t.dataset.src + '" alt="">';
+                });
+                
+                // Store original image and play this video
+                const img = thumb.querySelector('img');
+                thumb.dataset.src = img ? img.src : '';
+                thumb.dataset.playing = '1';
+                thumb.innerHTML = '';
+                thumb.appendChild(createYouTubeIframe(videoId, true));
+            }
+        }
+
+        // Add click event listeners to all video cards
+        document.querySelectorAll('.video-card').forEach(card => {
+            card.addEventListener('click', handleVideoClick);
+        });
+
+        // Modal close functionality
+        const modal = document.getElementById('videoModal');
+        const closeBtn = document.querySelector('.close');
+        
+        closeBtn.addEventListener('click', () => {
+            modal.style.display = 'none';
+            document.getElementById('videoPlayer').innerHTML = '';
+            document.body.style.overflow = '';
+        });
+        
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+                document.getElementById('videoPlayer').innerHTML = '';
+                document.body.style.overflow = '';
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.style.display === 'flex') {
+                modal.style.display = 'none';
+                document.getElementById('videoPlayer').innerHTML = '';
+                document.body.style.overflow = '';
+            }
+        });
+    </script>
+</body>
+</html>
