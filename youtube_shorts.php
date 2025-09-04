@@ -103,7 +103,8 @@ final class YouTube_Shorts_Slider {
                 'arrow_icon_color' => '#ffffff',
                 'arrow_icon_size' => 28,
                 'pagination_dot_color' => '#cfcfcf',
-                'pagination_active_dot_color' => '#111111'
+                'pagination_active_dot_color' => '#111111',
+                'playlist_order' => 'playlist'
             ];
             update_option('youtube_shorts_defaults', $defaults);
         }
@@ -464,6 +465,23 @@ final class YouTube_Shorts_Slider {
                                 <option value="redirect" <?php selected($defaults['play'] ?? 'inline', 'redirect'); ?>>Redirect to YouTube</option>
                             </select>
                             <p class="description">How videos should be played when clicked</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">
+                            <label for="playlist_order">Playlist Order</label>
+                        </th>
+                        <td>
+                            <select id="playlist_order" name="youtube_shorts_defaults[playlist_order]">
+                                <option value="playlist" <?php selected($defaults['playlist_order'] ?? 'playlist', 'playlist'); ?>>Playlist order (as on YouTube)</option>
+                                <option value="playlist_desc" <?php selected($defaults['playlist_order'] ?? 'playlist', 'playlist_desc'); ?>>Playlist order (reversed)</option>
+                                <option value="date" <?php selected($defaults['playlist_order'] ?? 'playlist', 'date'); ?>>Published date (newest first)</option>
+                                <option value="date_asc" <?php selected($defaults['playlist_order'] ?? 'playlist', 'date_asc'); ?>>Published date (oldest first)</option>
+                                <option value="title" <?php selected($defaults['playlist_order'] ?? 'playlist', 'title'); ?>>Title (A-Z)</option>
+                                <option value="title_desc" <?php selected($defaults['playlist_order'] ?? 'playlist', 'title_desc'); ?>>Title (Z-A)</option>
+                                <option value="relevance" <?php selected($defaults['playlist_order'] ?? 'playlist', 'relevance'); ?>>Original order</option>
+                            </select>
+                            <p class="description">How videos should be ordered in the playlist</p>
                         </td>
                     </tr>
                     <tr>
@@ -850,6 +868,7 @@ final class YouTube_Shorts_Slider {
                         <li><strong>api_key</strong> (optional): Custom YouTube API key (overrides admin setting)</li>
                         <li><strong>max</strong> (optional): Maximum number of videos to display (default: 18)</li>
                         <li><strong>play</strong> (optional): How videos play - "inline", "popup", or "redirect" (default: inline)</li>
+                        <li><strong>order</strong> (optional): Playlist order - "playlist", "playlist_desc", "date", "date_asc", "title", "title_desc", or "relevance" (default: playlist)</li>
                         <li><strong>cache_ttl</strong> (optional): Cache duration in seconds (default: 86400 = 24 hours)</li>
                         <li><strong>max_width</strong> (optional): Maximum width of grid in pixels (default: 1450)</li>
                         <li><strong>thumb_height</strong> (optional): Thumbnail height - "auto", "80", "120", "160", "180", "200", "240", or "300" (default: auto)</li>
@@ -888,6 +907,18 @@ final class YouTube_Shorts_Slider {
             
             <p><strong>Custom slider layout:</strong><br>
             <code>[shorts_slider playlist="PLxxxxxxxx" max="12" cols_desktop="4" cols_tablet="2" cols_mobile="1" gap="15"]</code></p>
+            
+            <p><strong>Use playlist order (as it appears on YouTube):</strong><br>
+            <code>[shorts_slider playlist="PLxxxxxxxx" order="playlist"]</code></p>
+            
+            <p><strong>Reverse playlist order:</strong><br>
+            <code>[shorts_slider playlist="PLxxxxxxxx" order="playlist_desc"]</code></p>
+            
+            <p><strong>Order by published date (newest first):</strong><br>
+            <code>[shorts_slider playlist="PLxxxxxxxx" order="date"]</code></p>
+            
+            <p><strong>Order by title (A-Z):</strong><br>
+            <code>[shorts_slider playlist="PLxxxxxxxx" order="title"]</code></p>
             
             <p><strong>Popup mode with custom cache:</strong><br>
             <code>[shorts_slider playlist="PLxxxxxxxx" play="popup" cache_ttl="3600" max_width="1200"]</code></p>
@@ -1126,7 +1157,8 @@ final class YouTube_Shorts_Slider {
                 'arrow_icon_color' => $defaults['arrow_icon_color'] ?? '#ffffff',
                 'arrow_icon_size' => $defaults['arrow_icon_size'] ?? 28,
                 'pagination_dot_color' => $defaults['pagination_dot_color'] ?? '#cfcfcf',
-                'pagination_active_dot_color' => $defaults['pagination_active_dot_color'] ?? '#111111'
+                'pagination_active_dot_color' => $defaults['pagination_active_dot_color'] ?? '#111111',
+                'order' => $defaults['playlist_order'] ?? 'playlist'
             ], $atts);
 
             // Validate and sanitize inputs
@@ -1164,6 +1196,9 @@ final class YouTube_Shorts_Slider {
             
             // Validate center on click
             $center_on_click = (bool) $atts['center_on_click'];
+            
+            // Validate playlist order
+            $playlist_order = in_array($atts['order'], ['playlist', 'playlist_desc', 'date', 'date_asc', 'title', 'title_desc', 'relevance']) ? $atts['order'] : 'playlist';
 
             // Validate thumbnail quality
             $thumb_quality = in_array($atts['thumb_quality'], ['default', 'medium', 'high', 'standard', 'maxres']) ? $atts['thumb_quality'] : 'medium';
@@ -1212,7 +1247,7 @@ final class YouTube_Shorts_Slider {
                 return self::render_error('YouTube API key is required. Please configure it in the admin panel.');
             }
 
-            $videos = self::get_playlist_videos($playlist_id, $max_videos, $cache_ttl, $api_key, $thumb_quality);
+            $videos = self::get_playlist_videos($playlist_id, $max_videos, $cache_ttl, $api_key, $thumb_quality, $playlist_order);
             
             if (empty($videos)) {
                 return self::render_error('No videos found or error fetching playlist. Please check your playlist ID and API key.');
@@ -1901,7 +1936,7 @@ final class YouTube_Shorts_Slider {
     /**
      * Get playlist videos from YouTube API with caching
      */
-    private static function get_playlist_videos($playlist_id, $max_videos = 18, $cache_ttl = 86400, $api_key = '', $thumb_quality = 'medium') {
+    private static function get_playlist_videos($playlist_id, $max_videos = 18, $cache_ttl = 86400, $api_key = '', $thumb_quality = 'medium', $order = 'date') {
         try {
             // Validate inputs
             if (empty($playlist_id) || empty($api_key)) {
@@ -1915,7 +1950,7 @@ final class YouTube_Shorts_Slider {
             $cache_ttl = min(max(intval($cache_ttl), self::MIN_CACHE_TTL), self::MAX_CACHE_TTL);
             
             // Generate cache key
-            $cache_key = self::TRANSIENT_PREFIX . md5($playlist_id . $max_videos . $cache_ttl);
+            $cache_key = self::TRANSIENT_PREFIX . md5($playlist_id . $max_videos . $cache_ttl . $order);
             $cached_videos = get_transient($cache_key);
             
             if ($cached_videos !== false) {
@@ -1986,6 +2021,16 @@ final class YouTube_Shorts_Slider {
                     continue; // Skip invalid video IDs
                 }
                 
+                // Skip deleted or private videos
+                $title = sanitize_text_field($snippet['title'] ?? '');
+                $description = sanitize_textarea_field($snippet['description'] ?? '');
+                
+                if ($title === 'Deleted video' || $title === 'Private video' || 
+                    $description === 'This video is unavailable.' || 
+                    empty($title) || $title === '') {
+                    continue; // Skip deleted/private/unavailable videos
+                }
+                
                 // Get thumbnail with quality fallback
                 $thumbnail_url = '';
                 
@@ -2000,13 +2045,24 @@ final class YouTube_Shorts_Slider {
                     $thumbnail_url = $snippet['thumbnails']['default']['url'];
                 }
                 
+                // Skip videos with no thumbnail (often indicates deleted/unavailable videos)
+                if (empty($thumbnail_url)) {
+                    continue; // Skip videos without thumbnails
+                }
+                
                 $videos[] = [
                     'video_id' => $video_id,
-                    'title' => sanitize_text_field($snippet['title'] ?? ''),
-                    'description' => wp_trim_words(sanitize_textarea_field($snippet['description'] ?? ''), 20),
+                    'title' => $title,
+                    'description' => wp_trim_words($description, 20),
                     'thumbnail' => esc_url_raw($thumbnail_url),
-                    'published_at' => sanitize_text_field($snippet['publishedAt'] ?? '')
+                    'published_at' => sanitize_text_field($snippet['publishedAt'] ?? ''),
+                    'playlist_position' => intval($item['snippet']['position'] ?? 0)
                 ];
+            }
+            
+            // Sort videos based on order parameter
+            if (!empty($videos)) {
+                $videos = self::sort_videos($videos, $order);
             }
             
             // Only cache if we have valid videos
@@ -2020,6 +2076,66 @@ final class YouTube_Shorts_Slider {
             self::log_error('Exception in get_playlist_videos: ' . $e->getMessage());
             return [];
         }
+    }
+    
+    /**
+     * Sort videos based on order parameter
+     */
+    private static function sort_videos($videos, $order = 'date') {
+        if (empty($videos) || !is_array($videos)) {
+            return $videos;
+        }
+        
+        switch ($order) {
+            case 'playlist':
+                // Sort by playlist position (ascending - as it appears on YouTube)
+                usort($videos, function($a, $b) {
+                    return $a['playlist_position'] - $b['playlist_position'];
+                });
+                break;
+                
+            case 'playlist_desc':
+                // Sort by playlist position (descending - reverse of YouTube order)
+                usort($videos, function($a, $b) {
+                    return $b['playlist_position'] - $a['playlist_position'];
+                });
+                break;
+                
+            case 'date':
+                // Sort by published date (newest first)
+                usort($videos, function($a, $b) {
+                    return strtotime($b['published_at']) - strtotime($a['published_at']);
+                });
+                break;
+                
+            case 'date_asc':
+                // Sort by published date (oldest first)
+                usort($videos, function($a, $b) {
+                    return strtotime($a['published_at']) - strtotime($b['published_at']);
+                });
+                break;
+                
+            case 'title':
+                // Sort by title (A-Z)
+                usort($videos, function($a, $b) {
+                    return strcasecmp($a['title'], $b['title']);
+                });
+                break;
+                
+            case 'title_desc':
+                // Sort by title (Z-A)
+                usort($videos, function($a, $b) {
+                    return strcasecmp($b['title'], $a['title']);
+                });
+                break;
+                
+            case 'relevance':
+            default:
+                // Keep original order (as returned by YouTube API)
+                break;
+        }
+        
+        return $videos;
     }
 
     /**
