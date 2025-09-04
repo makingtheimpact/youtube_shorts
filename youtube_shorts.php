@@ -1486,9 +1486,37 @@ final class YouTube_Shorts_Slider {
             }
 
             /* Dots */
-            #<?php echo esc_attr($uid); ?> .ytrow-dots{ display:flex; gap:10px; align-items:center; }
-            #<?php echo esc_attr($uid); ?> .ytrow-dot{ width:10px; height:10px; border-radius:50%; background:var(--pagination-dot-color); border:0; cursor:pointer; padding:0; }
+            #<?php echo esc_attr($uid); ?> .ytrow-dots{ 
+                display:flex; 
+                gap:10px; 
+                align-items:center; 
+                flex-wrap: wrap;
+                justify-content: center;
+                max-width: 100%;
+            }
+            #<?php echo esc_attr($uid); ?> .ytrow-dot{ 
+                width:10px; 
+                height:10px; 
+                border-radius:50%; 
+                background:var(--pagination-dot-color); 
+                border:0; 
+                cursor:pointer; 
+                padding:0; 
+                flex-shrink: 0;
+            }
             #<?php echo esc_attr($uid); ?> .ytrow-dot.active{ background:var(--pagination-active-dot-color); }
+            
+            /* Mobile: Allow dots to wrap and ensure they don't interfere with arrows */
+            @media (max-width: 767px) {
+                #<?php echo esc_attr($uid); ?> .ytrow-dots{ 
+                    gap: 8px;
+                    margin: 0 10px;
+                }
+                #<?php echo esc_attr($uid); ?> .ytrow-dot{ 
+                    width: 8px; 
+                    height: 8px; 
+                }
+            }
 
             /* Admin refresh below controls */
             #<?php echo esc_attr($uid); ?> .ytrow-admin{ display:flex; justify-content:center; margin-top:8px; }
@@ -1787,14 +1815,23 @@ final class YouTube_Shorts_Slider {
                 const m = metrics();
                 dotsWrap.innerHTML = '';
                 pageLefts = [];
-                for(let i=0;i<m.pages;i++){
-                    const left = (i === m.pages - 1) ? m.maxScroll : Math.min(m.maxScroll, Math.round(i * m.pageW));
-                    pageLefts.push(left);
-                    const d = document.createElement('button');
-                    d.type='button'; d.className='ytrow-dot';
-                    d.addEventListener('click', ()=> goToPage(i));
-                    dotsWrap.appendChild(d);
-                    if(i === 0) d.classList.add('active');
+                
+                // Only show pagination if there are multiple pages
+                if (m.pages > 1) {
+                    for(let i=0;i<m.pages;i++){
+                        const left = (i === m.pages - 1) ? m.maxScroll : Math.min(m.maxScroll, Math.round(i * m.pageW));
+                        pageLefts.push(left);
+                        const d = document.createElement('button');
+                        d.type='button'; d.className='ytrow-dot';
+                        d.addEventListener('click', ()=> goToPage(i));
+                        dotsWrap.appendChild(d);
+                        if(i === 0) d.classList.add('active');
+                    }
+                    // Show controls when pagination is needed
+                    root.querySelector('.ytrow-controls').style.display = 'flex';
+                } else {
+                    // Hide controls when all videos fit in one page
+                    root.querySelector('.ytrow-controls').style.display = 'none';
                 }
             }
             function goToPage(i){
